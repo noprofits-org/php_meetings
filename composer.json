@@ -1,7 +1,32 @@
 {
     "name": "aa-meetings/php-static-generator",
-    "description": "Simple static site generator for AA meetings",
+    "type": "project",
+    "description": "Automated static site generator for AA meetings with calendar-based organization and weekly GitHub Actions deployment",
+    "keywords": [
+        "aa-meetings",
+        "static-site-generator",
+        "php",
+        "calendar",
+        "github-actions",
+        "automated-deployment",
+        "seattle",
+        "meetings-directory"
+    ],
+    "homepage": "https://github.com/username/php_meetings",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "AA Meetings Project",
+            "email": "developer@example.com",
+            "role": "Developer"
+        }
+    ],
+    "support": {
+        "issues": "https://github.com/username/php_meetings/issues",
+        "source": "https://github.com/username/php_meetings"
+    },
     "require": {
+        "php": "^7.4 || ^8.0",
         "guzzlehttp/guzzle": "^7.5",
         "twig/twig": "^3.0"
     },
@@ -9,5 +34,22 @@
         "psr-4": {
             "AAMeetings\\": "src/"
         }
-    }
+    },
+    "scripts": {
+        "build": "php build.php",
+        "validate-composer": "composer validate --strict",
+        "check": [
+            "@validate-composer",
+            "@build"
+        ]
+    },
+    "config": {
+        "optimize-autoloader": true,
+        "sort-packages": true,
+        "allow-plugins": {
+            "*": false
+        }
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true
 }
