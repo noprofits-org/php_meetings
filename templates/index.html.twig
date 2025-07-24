@@ -1,0 +1,39 @@
+{% extends "base.html.twig" %}
+
+{% block title %}AA Meetings - Seattle{% endblock %}
+
+{% block content %}
+    <h1>AA Meetings in Seattle</h1>
+    
+    <div class="stats">
+        <p><strong>Total meetings found:</strong> {{ meeting_count|default(meetings|length) }}</p>
+        <p><em>Last updated: {{ generated_at|default("now"|date("F j, Y, g:i a")) }}</em></p>
+    </div>
+    
+    <div class="meetings-list">
+        {% for meeting in meetings %}
+            <div class="meeting">
+                <h2>{{ meeting.name }}</h2>
+                <p class="address">{{ meeting.address }}</p>
+                {% if meeting.time_formatted %}
+                    <p class="time">
+                        {% set days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'] %}
+                        {% if meeting.day is defined and meeting.day is not null %}
+                            {{ days[meeting.day] }}
+                        {% endif %}
+                        {{ meeting.time_formatted }}
+                    </p>
+                {% endif %}
+                {% if meeting.location %}
+                    <p class="location">Location: {{ meeting.location }}</p>
+                {% endif %}
+            </div>
+        {% endfor %}
+    </div>
+    
+    <footer style="margin-top: 50px; padding-top: 30px; border-top: 1px solid #ddd; text-align: center; color: #666; font-size: 0.9em;">
+        <p>Data sourced from <a href="https://www.seattleaa.org" target="_blank" rel="noopener">Seattle AA</a></p>
+        <p>This is a static mirror for offline access. For the most current information, please visit the official Seattle AA website.</p>
+        <p style="font-size: 0.8em; margin-top: 20px;">Generated on {{ generated_at|default("now"|date("F j, Y \\a\\t g:i a")) }}</p>
+    </footer>
+{% endblock %}

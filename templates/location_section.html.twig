@@ -1,0 +1,28 @@
+<div class="location-section">
+    <div class="location-header">
+        📍 {{ location }}
+    </div>
+    <div class="location-meetings">
+        {% for meeting in meetings %}
+            <div class="meeting">
+                <h2>{{ meeting.name }}</h2>
+                
+                {% if meeting.time_formatted %}
+                    <div class="meeting-time">
+                        🕐 {{ meeting.time_formatted }}
+                    </div>
+                {% endif %}
+                
+                <div class="meeting-address">
+                    📍 {{ meeting.address }}
+                </div>
+                
+                {% if meeting.region and meeting.region != location %}
+                    <div class="meeting-details">
+                        Region: {{ meeting.region }}
+                    </div>
+                {% endif %}
+            </div>
+        {% endfor %}
+    </div>
+</div>

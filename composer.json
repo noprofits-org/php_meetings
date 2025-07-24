@@ -1,0 +1,13 @@
+{
+    "name": "aa-meetings/php-static-generator",
+    "description": "Simple static site generator for AA meetings",
+    "require": {
+        "guzzlehttp/guzzle": "^7.5",
+        "twig/twig": "^3.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "AAMeetings\\": "src/"
+        }
+    }
+}

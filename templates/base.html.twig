@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}AA Meetings - Seattle{% endblock %}</title>
+    
+    <!-- SEO Meta Tags -->
+    <meta name="description" content="Find AA (Alcoholics Anonymous) meetings in Seattle, WA. Browse meeting times, locations, and addresses for all Seattle area AA meetings.">
+    <meta name="keywords" content="AA meetings, Alcoholics Anonymous, Seattle, recovery, support groups, meeting times, locations">
+    <meta name="author" content="Seattle AA">
+    
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://seattleaa.org/">
+    <meta property="og:title" content="AA Meetings - Seattle">
+    <meta property="og:description" content="Find AA meetings in Seattle, WA. Browse meeting times, locations, and addresses.">
+    
+    <!-- Twitter -->
+    <meta property="twitter:card" content="summary">
+    <meta property="twitter:title" content="AA Meetings - Seattle">
+    <meta property="twitter:description" content="Find AA meetings in Seattle, WA. Browse meeting times, locations, and addresses.">
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/x-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔵</text></svg>">
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        h1 {
+            color: #2c3e50;
+            margin-bottom: 30px;
+        }
+        .meeting {
+            background: #f5f5f5;
+            padding: 15px;
+            margin-bottom: 15px;
+            border-radius: 8px;
+            border-left: 4px solid #3498db;
+        }
+        .meeting h2 {
+            margin: 0 0 10px 0;
+            color: #2c3e50;
+            font-size: 1.2em;
+        }
+        .address {
+            color: #666;
+            font-size: 0.95em;
+        }
+        .time {
+            color: #27ae60;
+            font-weight: 500;
+            margin: 5px 0;
+        }
+        .location {
+            color: #7f8c8d;
+            font-size: 0.9em;
+            font-style: italic;
+        }
+        .stats {
+            background: #e8f4f8;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 30px;
+        }
+    </style>
+</head>
+<body>
+    {% block content %}{% endblock %}
+</body>
+</html>

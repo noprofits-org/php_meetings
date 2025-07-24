@@ -1,0 +1,221 @@
+{% extends "base.html.twig" %}
+
+{% block title %}{{ day_name }}, {{ date_formatted }} - AA Meetings - Seattle{% endblock %}
+
+{% block content %}
+    <nav class="breadcrumb">
+        <a href="index.html">← Back to Calendar</a>
+    </nav>
+    
+    <h1>{{ day_name }}, {{ date_formatted }}</h1>
+    <p class="subtitle">AA Meetings in Seattle</p>
+    
+    <div class="day-stats">
+        <p><strong>{{ meetings|length }} meeting{{ meetings|length != 1 ? 's' : '' }} scheduled</strong></p>
+        {% if meetings|length == 0 %}
+            <p><em>No meetings scheduled for this day</em></p>
+        {% endif %}
+    </div>
+    
+    {% if meetings|length > 0 %}
+        <div class="meetings-by-location">
+            {% set current_location = null %}
+            {% set location_meetings = [] %}
+            
+            {% for meeting in meetings %}
+                {% set meeting_location = meeting.location ?: meeting.region ?: 'Unknown Location' %}
+                
+                {# If location changed, render previous location's meetings #}
+                {% if current_location != meeting_location and current_location != null %}
+                    {% include 'location_section.html.twig' with {
+                        'location': current_location,
+                        'meetings': location_meetings
+                    } %}
+                    {% set location_meetings = [] %}
+                {% endif %}
+                
+                {% set current_location = meeting_location %}
+                {% set location_meetings = location_meetings|merge([meeting]) %}
+            {% endfor %}
+            
+            {# Render the last location's meetings #}
+            {% if current_location != null and location_meetings|length > 0 %}
+                {% include 'location_section.html.twig' with {
+                    'location': current_location,
+                    'meetings': location_meetings
+                } %}
+            {% endif %}
+        </div>
+    {% endif %}
+    
+    <div class="navigation">
+        <div class="nav-links">
+            {% if prev_day %}
+                <a href="day-{{ prev_day }}.html" class="nav-link prev">
+                    ← {{ prev_day_name }}
+                </a>
+            {% endif %}
+            
+            <a href="index.html" class="nav-link calendar">
+                📅 Back to Calendar
+            </a>
+            
+            {% if next_day %}
+                <a href="day-{{ next_day }}.html" class="nav-link next">
+                    {{ next_day_name }} →
+                </a>
+            {% endif %}
+        </div>
+    </div>
+    
+    <footer style="margin-top: 50px; padding-top: 30px; border-top: 1px solid #ddd; text-align: center; color: #666; font-size: 0.9em;">
+        <p>Data sourced from <a href="https://www.seattleaa.org" target="_blank" rel="noopener">Seattle AA</a></p>
+        <p>This is a static mirror for offline access. For the most current information, please visit the official Seattle AA website.</p>
+        <p style="font-size: 0.8em; margin-top: 20px;">Generated on {{ generated_at }}</p>
+    </footer>
+    
+    <style>
+        .breadcrumb {
+            margin-bottom: 20px;
+        }
+        
+        .breadcrumb a {
+            color: #3498db;
+            text-decoration: none;
+            font-size: 0.9em;
+        }
+        
+        .breadcrumb a:hover {
+            text-decoration: underline;
+        }
+        
+        .subtitle {
+            color: #666;
+            font-size: 1.1em;
+            margin: -10px 0 30px 0;
+        }
+        
+        .day-stats {
+            background: #e8f4f8;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 30px;
+        }
+        
+        .location-section {
+            margin-bottom: 40px;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        
+        .location-header {
+            background: #34495e;
+            color: white;
+            padding: 15px 20px;
+            font-weight: 600;
+            font-size: 1.1em;
+        }
+        
+        .location-meetings {
+            padding: 0;
+        }
+        
+        .meeting {
+            background: white;
+            padding: 20px;
+            border-bottom: 1px solid #eee;
+            border-left: none;
+            margin-bottom: 0;
+            border-radius: 0;
+        }
+        
+        .meeting:last-child {
+            border-bottom: none;
+        }
+        
+        .meeting h2 {
+            color: #2c3e50;
+            margin-bottom: 10px;
+            font-size: 1.2em;
+        }
+        
+        .meeting-time {
+            color: #27ae60;
+            font-weight: 600;
+            font-size: 1.1em;
+            margin-bottom: 8px;
+        }
+        
+        .meeting-address {
+            color: #666;
+            margin-bottom: 8px;
+        }
+        
+        .meeting-details {
+            color: #7f8c8d;
+            font-size: 0.9em;
+            font-style: italic;
+        }
+        
+        .navigation {
+            margin: 50px 0;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 10px;
+        }
+        
+        .nav-links {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 20px;
+        }
+        
+        .nav-link {
+            text-decoration: none;
+            padding: 12px 20px;
+            border-radius: 6px;
+            font-weight: 500;
+            transition: all 0.2s;
+            flex: 1;
+            text-align: center;
+        }
+        
+        .nav-link.prev,
+        .nav-link.next {
+            background: #3498db;
+            color: white;
+        }
+        
+        .nav-link.calendar {
+            background: #2c3e50;
+            color: white;
+        }
+        
+        .nav-link:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        }
+        
+        @media (max-width: 768px) {
+            .nav-links {
+                flex-direction: column;
+            }
+            
+            .nav-link {
+                width: 100%;
+            }
+            
+            .location-header {
+                padding: 12px 15px;
+                font-size: 1em;
+            }
+            
+            .meeting {
+                padding: 15px;
+            }
+        }
+    </style>
+{% endblock %}

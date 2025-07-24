@@ -1,0 +1,225 @@
+{% extends "base.html.twig" %}
+
+{% block title %}AA Meetings - {{ calendar.month }} {{ calendar.year }} - Seattle{% endblock %}
+
+{% block content %}
+    <h1>AA Meetings - {{ calendar.month }} {{ calendar.year }}</h1>
+    <p class="subtitle">Seattle, Washington</p>
+    
+    <div class="stats">
+        <p><strong>Total meetings this month:</strong> {{ total_meetings }}</p>
+        <p><em>Last updated: {{ generated_at }}</em></p>
+    </div>
+    
+    <div class="calendar-container">
+        <div class="calendar-header">
+            <div class="day-header">Sun</div>
+            <div class="day-header">Mon</div>
+            <div class="day-header">Tue</div>
+            <div class="day-header">Wed</div>
+            <div class="day-header">Thu</div>
+            <div class="day-header">Fri</div>
+            <div class="day-header">Sat</div>
+        </div>
+        
+        <div class="calendar-grid">
+            {# Empty cells for days before the first day of the month #}
+            {% for i in 0..(calendar.first_day_of_week - 1) %}
+                <div class="calendar-day empty"></div>
+            {% endfor %}
+            
+            {# Days of the month #}
+            {% for day in 1..calendar.days_in_month %}
+                {% set meeting_count = meetings_by_day[day]|length %}
+                <div class="calendar-day {% if meeting_count > 0 %}has-meetings{% endif %}">
+                    <div class="day-number">{{ day }}</div>
+                    
+                    {% if meeting_count > 0 %}
+                        <a href="day-{{ day }}.html" class="day-link">
+                            <div class="meeting-count">{{ meeting_count }} meeting{{ meeting_count != 1 ? 's' : '' }}</div>
+                        </a>
+                    {% else %}
+                        <div class="no-meetings">No meetings</div>
+                    {% endif %}
+                </div>
+            {% endfor %}
+        </div>
+    </div>
+    
+    <div class="quick-links">
+        <h2>Quick Access</h2>
+        <div class="day-links">
+            {% for day in 1..calendar.days_in_month %}
+                {% set meeting_count = meetings_by_day[day]|length %}
+                {% if meeting_count > 0 %}
+                    {% set date_string = calendar.year ~ '-' ~ ('%02d'|format(calendar.month_number)) ~ '-' ~ ('%02d'|format(day)) %}
+                    {% set day_name = date_string|date('l') %}
+                    <a href="day-{{ day }}.html" class="quick-link">
+                        <strong>{{ day_name }}, {{ calendar.month }} {{ day }}</strong>
+                        <span class="meeting-count-text">{{ meeting_count }} meeting{{ meeting_count != 1 ? 's' : '' }}</span>
+                    </a>
+                {% endif %}
+            {% endfor %}
+        </div>
+    </div>
+    
+    <footer style="margin-top: 50px; padding-top: 30px; border-top: 1px solid #ddd; text-align: center; color: #666; font-size: 0.9em;">
+        <p>Data sourced from <a href="https://www.seattleaa.org" target="_blank" rel="noopener">Seattle AA</a></p>
+        <p>This is a static mirror for offline access. For the most current information, please visit the official Seattle AA website.</p>
+        <p style="font-size: 0.8em; margin-top: 20px;">Generated on {{ generated_at }}</p>
+    </footer>
+    
+    <style>
+        .subtitle {
+            color: #666;
+            font-size: 1.1em;
+            margin: -10px 0 30px 0;
+        }
+        
+        .calendar-container {
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            overflow: hidden;
+            margin: 30px 0;
+        }
+        
+        .calendar-header {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            background: #2c3e50;
+            color: white;
+        }
+        
+        .day-header {
+            padding: 15px;
+            text-align: center;
+            font-weight: 600;
+            font-size: 0.9em;
+        }
+        
+        .calendar-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 1px;
+            background: #ddd;
+        }
+        
+        .calendar-day {
+            background: white;
+            min-height: 100px;
+            padding: 10px;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .calendar-day.empty {
+            background: #f8f9fa;
+        }
+        
+        .calendar-day.has-meetings {
+            background: #f0f9ff;
+            border-left: 4px solid #3498db;
+        }
+        
+        .day-number {
+            font-weight: 600;
+            font-size: 1.1em;
+            color: #2c3e50;
+            margin-bottom: 5px;
+        }
+        
+        .day-link {
+            text-decoration: none;
+            color: inherit;
+            flex-grow: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 5px;
+            padding: 5px;
+            transition: background-color 0.2s;
+        }
+        
+        .day-link:hover {
+            background: rgba(52, 152, 219, 0.1);
+        }
+        
+        .meeting-count {
+            color: #27ae60;
+            font-weight: 500;
+            font-size: 0.85em;
+            text-align: center;
+        }
+        
+        .no-meetings {
+            color: #999;
+            font-size: 0.8em;
+            text-align: center;
+            font-style: italic;
+            margin-top: auto;
+        }
+        
+        .quick-links {
+            margin: 40px 0;
+        }
+        
+        .quick-links h2 {
+            color: #2c3e50;
+            margin-bottom: 20px;
+        }
+        
+        .day-links {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 15px;
+        }
+        
+        .quick-link {
+            display: block;
+            text-decoration: none;
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 4px solid #3498db;
+            transition: all 0.2s;
+        }
+        
+        .quick-link:hover {
+            background: #e3f2fd;
+            transform: translateX(5px);
+        }
+        
+        .quick-link strong {
+            display: block;
+            color: #2c3e50;
+            margin-bottom: 5px;
+        }
+        
+        .meeting-count-text {
+            color: #27ae60;
+            font-size: 0.9em;
+        }
+        
+        @media (max-width: 768px) {
+            .calendar-grid {
+                gap: 2px;
+            }
+            
+            .calendar-day {
+                min-height: 80px;
+                padding: 8px;
+            }
+            
+            .day-header {
+                padding: 10px 5px;
+                font-size: 0.8em;
+            }
+            
+            .day-links {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+{% endblock %}

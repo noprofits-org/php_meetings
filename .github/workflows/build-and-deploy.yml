@@ -1,0 +1,417 @@
+name: Build and Deploy AA Meetings Site
+
+on:
+  # Run every Sunday at 6 AM UTC (Saturday evening/Sunday morning in US)
+  schedule:
+    - cron: '0 6 * * 0'
+  
+  # Allow manual triggering from GitHub interface
+  workflow_dispatch:
+    inputs:
+      force_rebuild:
+        description: 'Force rebuild even if no changes'
+        required: false
+        default: 'false'
+        type: boolean
+  
+  # Also run on pushes to main branch for testing
+  push:
+    branches: [ main, master ]
+    paths:
+      - 'src/**'
+      - 'templates/**'
+      - 'build.php'
+      - 'composer.json'
+      - '.github/workflows/**'
+
+env:
+  # Configuration
+  PHP_VERSION: '8.1'
+  COMPOSER_CACHE_DIR: ~/.composer/cache
+  DEPLOY_BRANCH: 'gh-pages'
+
+jobs:
+  build-and-deploy:
+    name: Build and Deploy
+    runs-on: ubuntu-latest
+    
+    permissions:
+      contents: write
+      pages: write
+      id-token: write
+      issues: write
+    
+    steps:
+    #========================================
+    # SETUP AND PREPARATION
+    #========================================
+    
+    - name: 🚀 Checkout repository
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+        token: ${{ secrets.GITHUB_TOKEN }}
+    
+    - name: 📅 Set build information
+      id: build_info
+      run: |
+        echo "build_date=$(date -u '+%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_OUTPUT
+        echo "build_timestamp=$(date -u '+%Y%m%d_%H%M%S')" >> $GITHUB_OUTPUT
+        echo "month_year=$(date -u '+%B %Y')" >> $GITHUB_OUTPUT
+        echo "workflow_url=${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" >> $GITHUB_OUTPUT
+    
+    - name: 🐘 Setup PHP ${{ env.PHP_VERSION }}
+      uses: shivammathur/setup-php@v2
+      with:
+        php-version: ${{ env.PHP_VERSION }}
+        extensions: mbstring, json, curl, dom, xml
+        coverage: none
+        tools: composer:v2
+      env:
+        COMPOSER_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    
+    - name: 📦 Validate composer.json
+      run: composer validate --strict
+    
+    - name: 🗂️ Cache Composer dependencies
+      uses: actions/cache@v3
+      with:
+        path: ${{ env.COMPOSER_CACHE_DIR }}
+        key: ${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-composer-
+    
+    #========================================
+    # BUILD PROCESS
+    #========================================
+    
+    - name: 📥 Install dependencies
+      run: |
+        echo "::group::Installing Composer dependencies"
+        composer install --no-interaction --no-progress --optimize-autoloader --no-dev
+        echo "::endgroup::"
+        
+        echo "::group::Dependency versions"
+        composer show --direct
+        echo "::endgroup::"
+    
+    - name: 🏗️ Build static site
+      id: build
+      run: |
+        echo "::group::Building AA meetings site"
+        
+        # Run build with error capture
+        if php build.php 2>&1 | tee build.log; then
+          echo "build_status=success" >> $GITHUB_OUTPUT
+          echo "✅ Build completed successfully"
+          
+          # Extract meeting count from build output
+          MEETING_COUNT=$(grep -o "Total meetings: [0-9]*" build.log | grep -o "[0-9]*" || echo "0")
+          PAGES_COUNT=$(find output -name "*.html" | wc -l)
+          
+          echo "meeting_count=$MEETING_COUNT" >> $GITHUB_OUTPUT
+          echo "pages_count=$PAGES_COUNT" >> $GITHUB_OUTPUT
+          
+          echo "📊 Build Statistics:"
+          echo "   - Meetings found: $MEETING_COUNT"
+          echo "   - Pages generated: $PAGES_COUNT"
+          echo "   - Output size: $(du -sh output/ | cut -f1)"
+          
+        else
+          echo "build_status=failed" >> $GITHUB_OUTPUT
+          echo "❌ Build failed - see build.log for details"
+          echo "::error::Build process failed"
+          
+          # Show last 20 lines of build log for debugging
+          echo "::group::Build Error Details"
+          tail -20 build.log || echo "No build log available"
+          echo "::endgroup::"
+          
+          exit 1
+        fi
+    
+    - name: 🔍 Validate build output
+      run: |
+        echo "::group::Validating generated files"
+        
+        # Check if index.html exists and is not empty
+        if [[ ! -f "output/index.html" ]]; then
+          echo "::error::Missing index.html file"
+          exit 1
+        fi
+        
+        if [[ ! -s "output/index.html" ]]; then
+          echo "::error::Empty index.html file"
+          exit 1
+        fi
+        
+        # Check for basic HTML structure
+        if ! grep -q "<html" output/index.html; then
+          echo "::error::Invalid HTML structure in index.html"
+          exit 1
+        fi
+        
+        # Count and validate day pages
+        DAY_PAGES=$(find output -name "day-*.html" | wc -l)
+        echo "Found $DAY_PAGES day pages"
+        
+        # Validate at least one day page exists
+        if [[ $DAY_PAGES -eq 0 ]]; then
+          echo "::warning::No day pages generated - this might indicate an issue"
+        fi
+        
+        echo "✅ Build output validation passed"
+        echo "::endgroup::"
+    
+    #========================================
+    # DEPLOYMENT PROCESS
+    #========================================
+    
+    - name: 📝 Create deployment metadata
+      run: |
+        echo "::group::Creating deployment metadata"
+        
+        # Create build info file
+        cat > output/build-info.json << EOF
+        {
+          "build_date": "${{ steps.build_info.outputs.build_date }}",
+          "build_timestamp": "${{ steps.build_info.outputs.build_timestamp }}",
+          "month_year": "${{ steps.build_info.outputs.month_year }}",
+          "meeting_count": ${{ steps.build.outputs.meeting_count }},
+          "pages_count": ${{ steps.build.outputs.pages_count }},
+          "workflow_url": "${{ steps.build_info.outputs.workflow_url }}",
+          "commit_sha": "${{ github.sha }}",
+          "repository": "${{ github.repository }}"
+        }
+        EOF
+        
+        # Create simple status page
+        cat > output/status.html << EOF
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>Build Status - AA Meetings Seattle</title>
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <style>
+            body { font-family: Arial, sans-serif; max-width: 800px; margin: 50px auto; padding: 20px; }
+            .status { background: #d4edda; color: #155724; padding: 15px; border-radius: 5px; margin: 20px 0; }
+            .info { background: #f8f9fa; padding: 15px; border-radius: 5px; margin: 10px 0; }
+            a { color: #007bff; }
+          </style>
+        </head>
+        <body>
+          <h1>🏗️ AA Meetings Site - Build Status</h1>
+          
+          <div class="status">
+            <strong>✅ Last Build: Success</strong><br>
+            Built on ${{ steps.build_info.outputs.build_date }}
+          </div>
+          
+          <div class="info">
+            <strong>📊 Statistics:</strong><br>
+            • Month: ${{ steps.build_info.outputs.month_year }}<br>
+            • Meetings: ${{ steps.build.outputs.meeting_count }}<br>
+            • Pages: ${{ steps.build.outputs.pages_count }}<br>
+            • Build ID: ${{ steps.build_info.outputs.build_timestamp }}
+          </div>
+          
+          <div class="info">
+            <strong>🔗 Links:</strong><br>
+            • <a href="index.html">View Calendar</a><br>
+            • <a href="${{ steps.build_info.outputs.workflow_url }}">View Build Log</a><br>
+            • <a href="https://github.com/${{ github.repository }}">GitHub Repository</a>
+          </div>
+          
+          <p><em>This site is automatically updated every Sunday at 6 AM UTC.</em></p>
+        </body>
+        </html>
+        EOF
+        
+        echo "✅ Deployment metadata created"
+        echo "::endgroup::"
+    
+    - name: 🚀 Deploy to GitHub Pages
+      uses: peaceiris/actions-gh-pages@v3
+      with:
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        publish_dir: ./output
+        publish_branch: ${{ env.DEPLOY_BRANCH }}
+        force_orphan: true
+        user_name: 'github-actions[bot]'
+        user_email: 'github-actions[bot]@users.noreply.github.com'
+        commit_message: |
+          🤖 Automated weekly update: ${{ steps.build_info.outputs.month_year }}
+          
+          📊 Build Statistics:
+          • Meetings: ${{ steps.build.outputs.meeting_count }}
+          • Pages: ${{ steps.build.outputs.pages_count }}
+          • Build: ${{ steps.build_info.outputs.build_timestamp }}
+          
+          🔗 Workflow: ${{ steps.build_info.outputs.workflow_url }}
+    
+    #========================================
+    # POST-DEPLOYMENT VALIDATION
+    #========================================
+    
+    - name: ✅ Verify deployment
+      run: |
+        echo "::group::Post-deployment verification"
+        
+        # Wait a moment for GitHub Pages to process
+        sleep 10
+        
+        # Check if gh-pages branch was created/updated
+        if git ls-remote --heads origin ${{ env.DEPLOY_BRANCH }} | grep -q ${{ env.DEPLOY_BRANCH }}; then
+          echo "✅ ${{ env.DEPLOY_BRANCH }} branch updated successfully"
+          
+          # Get the latest commit on gh-pages
+          DEPLOY_COMMIT=$(git ls-remote origin ${{ env.DEPLOY_BRANCH }} | cut -f1)
+          echo "📝 Latest deployment commit: $DEPLOY_COMMIT"
+          
+        else
+          echo "::error::Failed to update ${{ env.DEPLOY_BRANCH }} branch"
+          exit 1
+        fi
+        
+        echo "::endgroup::"
+    
+    #========================================
+    # SUCCESS NOTIFICATION
+    #========================================
+    
+    - name: 🎉 Build success summary
+      run: |
+        echo "=========================================="
+        echo "✅ DEPLOYMENT COMPLETED SUCCESSFULLY!"
+        echo "=========================================="
+        echo ""
+        echo "📅 Build Date: ${{ steps.build_info.outputs.build_date }}"
+        echo "📊 Month: ${{ steps.build_info.outputs.month_year }}"
+        echo "🏢 Meetings: ${{ steps.build.outputs.meeting_count }}"
+        echo "📄 Pages: ${{ steps.build.outputs.pages_count }}"
+        echo ""
+        echo "🌐 Your site should be available at:"
+        echo "   https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/"
+        echo ""
+        echo "🔧 Workflow: ${{ steps.build_info.outputs.workflow_url }}"
+        echo "🏗️ Build ID: ${{ steps.build_info.outputs.build_timestamp }}"
+        echo ""
+        echo "Next automatic update: Next Sunday at 6:00 AM UTC"
+        echo "=========================================="
+
+  #========================================
+  # ERROR HANDLING JOB
+  #========================================
+  
+  handle-failure:
+    name: Handle Build Failure
+    runs-on: ubuntu-latest
+    needs: build-and-deploy
+    if: failure()
+    
+    permissions:
+      issues: write
+      contents: read
+    
+    steps:
+    - name: 🚨 Create failure issue
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const buildDate = new Date().toISOString().split('T')[0];
+          const workflowUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+          
+          // Check if there's already an open issue for build failures
+          const existingIssues = await github.rest.issues.listForRepo({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            labels: ['automated-build', 'bug'],
+            state: 'open'
+          });
+          
+          const buildFailureIssue = existingIssues.data.find(issue => 
+            issue.title.includes('Weekly Build Failed')
+          );
+          
+          const issueBody = `## 🚨 Automated Build Failure Report
+          
+          **Build Date:** ${buildDate}  
+          **Time:** ${new Date().toUTCString()}  
+          **Workflow:** [View Details](${workflowUrl})
+          
+          ### 🔍 What Happened
+          The weekly automated build for the AA Meetings site failed during execution.
+          
+          ### 🛠️ Troubleshooting Steps
+          
+          1. **Check API Status**
+             - Verify CORS proxy: https://cors-proxy-xi-ten.vercel.app/api/proxy
+             - Test Seattle AA API accessibility
+             - Check for API format changes
+          
+          2. **Review Build Logs**
+             - [View full workflow logs](${workflowUrl})
+             - Look for PHP errors or network timeouts
+             - Check dependency installation issues
+          
+          3. **Common Fixes**
+             - Temporary API outage (will resolve automatically)
+             - Dependency version conflicts
+             - GitHub Actions environment changes
+          
+          ### ⚡ Quick Actions
+          
+          - **Manual Retry:** Go to [Actions](../../actions) and click "Re-run failed jobs"
+          - **Force Rebuild:** Use the "workflow_dispatch" trigger with manual input
+          - **Check Status:** Monitor the [build status page](https://\${context.repo.owner}.github.io/\${context.repo.repo}/status.html)
+          
+          ### 📈 Next Steps
+          
+          - This issue will auto-close when the next build succeeds
+          - Builds run automatically every Sunday at 6 AM UTC
+          - You can manually trigger a rebuild at any time
+          
+          ---
+          
+          *This issue was automatically created by GitHub Actions.*  
+          *Issue will be closed automatically when builds resume successfully.*`;
+          
+          if (buildFailureIssue) {
+            // Update existing issue
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: buildFailureIssue.number,
+              body: `### 🔄 Additional Build Failure
+              
+              **Date:** ${buildDate}  
+              **Workflow:** [View Details](${workflowUrl})
+              
+              The automated build failed again. Please check the workflow logs for details.`
+            });
+            
+            console.log(`Updated existing failure issue #${buildFailureIssue.number}`);
+          } else {
+            // Create new issue
+            const issue = await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `🚨 Weekly Build Failed - ${buildDate}`,
+              body: issueBody,
+              labels: ['automated-build', 'bug', 'needs-investigation']
+            });
+            
+            console.log(`Created new failure issue #${issue.data.number}`);
+          }
+    
+    - name: 📧 Failure notification
+      run: |
+        echo "🚨 BUILD FAILURE DETECTED"
+        echo "========================="
+        echo ""
+        echo "The automated build process failed."
+        echo "An issue has been created with troubleshooting information."
+        echo ""
+        echo "🔗 Workflow: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+        echo ""
+        echo "The next scheduled build will attempt to resolve this automatically."
