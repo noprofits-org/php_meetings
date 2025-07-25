@@ -1,0 +1,36 @@
+name: Update Meeting Data
+on:
+  schedule:
+    - cron: '0 6 * * 1'  # Weekly on Monday at 6 AM UTC
+  workflow_dispatch:
+
+jobs:
+  update-data:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.1'
+          extensions: json, curl, mbstring
+          
+      - name: Install Composer dependencies
+        run: composer install --no-dev --optimize-autoloader
+        
+      - name: Generate static site
+        run: php build.php
+        
+      - name: Create search data files
+        run: php scripts/generate-search-data.php
+        
+      - name: Commit updated data
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add output/ data/
+          git diff --cached --quiet && echo "No changes to commit" && exit 0
+          git commit -m "Weekly meeting data update - $(date -u +'%Y-%m-%d %H:%M:%S UTC')"
+          git push

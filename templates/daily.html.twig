@@ -7,6 +7,93 @@
     <meta name="theme-color" content="#3182ce">
     <link rel="stylesheet" href="../css/styles.css">
     <title>{{ day_name }}, {{ formatted_date }} - AA Meetings</title>
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "ItemList",
+        "name": "AA Meetings for {{ day_name }}, {{ formatted_date }}",
+        "description": "List of Alcoholics Anonymous meetings scheduled for {{ day_name }}, {{ formatted_date }} in the Seattle area",
+        "numberOfItems": {{ online_meetings|length + in_person_meetings|length + hybrid_meetings|length }},
+        "itemListElement": [
+            {% set itemIndex = 0 %}
+            {% for meeting in online_meetings %}
+                {% set itemIndex = itemIndex + 1 %}
+                {
+                    "@type": "ListItem",
+                    "position": {{ itemIndex }},
+                    "item": {
+                        "@type": "Event",
+                        "name": "{{ meeting.name|escape('js') }}",
+                        "startTime": "{{ meeting.time_formatted|escape('js') }}",
+                        "eventAttendanceMode": "https://schema.org/OnlineEventAttendanceMode",
+                        "location": {
+                            "@type": "VirtualLocation",
+                            "url": "{{ meeting.conference_url|escape('js') }}"
+                        },
+                        "organizer": {
+                            "@type": "Organization",
+                            "name": "{{ meeting.entity|escape('js') }}"
+                        }
+                    }
+                }{% if not loop.last or in_person_meetings|length > 0 or hybrid_meetings|length > 0 %},{% endif %}
+            {% endfor %}
+            {% for city, city_meetings in in_person_meetings %}
+                {% for meeting in city_meetings %}
+                    {% set itemIndex = itemIndex + 1 %}
+                    {
+                        "@type": "ListItem",
+                        "position": {{ itemIndex }},
+                        "item": {
+                            "@type": "Event",
+                            "name": "{{ meeting.name|escape('js') }}",
+                            "startTime": "{{ meeting.time_formatted|escape('js') }}",
+                            "eventAttendanceMode": "https://schema.org/OfflineEventAttendanceMode",
+                            "location": {
+                                "@type": "Place",
+                                "name": "{{ meeting.formatted_address|escape('js') }}",
+                                "address": "{{ meeting.formatted_address|escape('js') }}"
+                            },
+                            "organizer": {
+                                "@type": "Organization",
+                                "name": "{{ meeting.entity|escape('js') }}"
+                            }
+                        }
+                    }{% if not (loop.parent.loop.last and loop.last and hybrid_meetings|length == 0) %},{% endif %}
+                {% endfor %}
+            {% endfor %}
+            {% for city, city_meetings in hybrid_meetings %}
+                {% for meeting in city_meetings %}
+                    {% set itemIndex = itemIndex + 1 %}
+                    {
+                        "@type": "ListItem",
+                        "position": {{ itemIndex }},
+                        "item": {
+                            "@type": "Event",
+                            "name": "{{ meeting.name|escape('js') }}",
+                            "startTime": "{{ meeting.time_formatted|escape('js') }}",
+                            "eventAttendanceMode": "https://schema.org/MixedEventAttendanceMode",
+                            "location": [
+                                {
+                                    "@type": "Place",
+                                    "name": "{{ meeting.formatted_address|escape('js') }}",
+                                    "address": "{{ meeting.formatted_address|escape('js') }}"
+                                },
+                                {
+                                    "@type": "VirtualLocation",
+                                    "url": "{{ meeting.conference_url|escape('js') }}"
+                                }
+                            ],
+                            "organizer": {
+                                "@type": "Organization",
+                                "name": "{{ meeting.entity|escape('js') }}"
+                            }
+                        }
+                    }{% if not (loop.parent.loop.last and loop.last) %},{% endif %}
+                {% endfor %}
+            {% endfor %}
+        ]
+    }
+    </script>
 </head>
 <body>
     <div class="container">

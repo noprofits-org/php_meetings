@@ -122,7 +122,35 @@ try {
     file_put_contents($outputDir . '/index.html', $html);
     $pagesGenerated++;
     
-    echo "✓ Generated main index page\n\n";
+    echo "✓ Generated main index page\n";
+    
+    // Generate search data files
+    echo "Generating search data files...\n";
+    exec('php ' . __DIR__ . '/scripts/generate-search-data.php', $searchOutput, $searchReturnVar);
+    
+    if ($searchReturnVar === 0) {
+        echo "✓ Generated search data files\n";
+        foreach ($searchOutput as $line) {
+            echo "  $line\n";
+        }
+    } else {
+        echo "⚠ Warning: Failed to generate search data files\n";
+    }
+    
+    // Generate sitemap and robots.txt
+    echo "Generating sitemap and robots.txt...\n";
+    exec('php ' . __DIR__ . '/scripts/generate-sitemap.php', $sitemapOutput, $sitemapReturnVar);
+    
+    if ($sitemapReturnVar === 0) {
+        echo "✓ Generated sitemap and robots.txt\n";
+        foreach ($sitemapOutput as $line) {
+            echo "  $line\n";
+        }
+    } else {
+        echo "⚠ Warning: Failed to generate sitemap\n";
+    }
+    
+    echo "\n";
     
     // Final summary
     echo "==================================================\n";
