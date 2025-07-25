@@ -11,40 +11,75 @@
     <p class="subtitle">AA Meetings in Seattle</p>
     
     <div class="day-stats">
-        <p><strong>{{ meetings|length }} meeting{{ meetings|length != 1 ? 's' : '' }} scheduled</strong></p>
-        {% if meetings|length == 0 %}
+        <p><strong>{{ meeting_count }} meeting{{ meeting_count != 1 ? 's' : '' }} scheduled</strong></p>
+        {% if meeting_count == 0 %}
             <p><em>No meetings scheduled for this day</em></p>
         {% endif %}
     </div>
     
-    {% if meetings|length > 0 %}
-        <div class="meetings-by-location">
-            {% set current_location = null %}
-            {% set location_meetings = [] %}
-            
-            {% for meeting in meetings %}
-                {% set meeting_location = meeting.location ?: meeting.region ?: 'Unknown Location' %}
-                
-                {# If location changed, render previous location's meetings #}
-                {% if current_location != meeting_location and current_location != null %}
-                    {% include 'location_section.html.twig' with {
-                        'location': current_location,
-                        'meetings': location_meetings
-                    } %}
-                    {% set location_meetings = [] %}
-                {% endif %}
-                
-                {% set current_location = meeting_location %}
-                {% set location_meetings = location_meetings|merge([meeting]) %}
+    {% if meetings_by_neighborhood|length > 0 %}
+        {# Neighborhood quick jump navigation #}
+        <nav class="neighborhood-nav">
+            <h3>Jump to Neighborhood:</h3>
+            <div class="neighborhood-links">
+                {% for neighborhood, locations in meetings_by_neighborhood %}
+                    <a href="#{{ neighborhood|replace({' ': '-'})|lower }}" class="neighborhood-link">
+                        {{ neighborhood }}
+                        <span class="badge">{{ locations|reduce((sum, loc) => sum + loc.meetings|length, 0) }}</span>
+                    </a>
+                {% endfor %}
+            </div>
+        </nav>
+        
+        {# Meetings by neighborhood #}
+        <div class="meetings-container">
+            {% for neighborhood, locations in meetings_by_neighborhood %}
+                <section id="{{ neighborhood|replace({' ': '-'})|lower }}" class="neighborhood-section">
+                    <h2 class="neighborhood-header">
+                        <span class="neighborhood-icon">📍</span>
+                        {{ neighborhood }}
+                        <span class="neighborhood-count">{{ locations|reduce((sum, loc) => sum + loc.meetings|length, 0) }} meeting{{ locations|reduce((sum, loc) => sum + loc.meetings|length, 0) != 1 ? 's' : '' }}</span>
+                    </h2>
+                    
+                    <div class="locations-grid">
+                        {% for location in locations %}
+                            <div class="location-card">
+                                <div class="location-header">
+                                    <h3 class="location-name">{{ location.location ?: 'Meeting Location' }}</h3>
+                                    <div class="location-address">{{ location.address }}</div>
+                                </div>
+                                
+                                <div class="meeting-times">
+                                    {% for meeting in location.meetings %}
+                                        <div class="meeting-item">
+                                            <div class="meeting-time">{{ meeting.time_formatted ?: 'Time TBD' }}</div>
+                                            <div class="meeting-name">{{ meeting.name }}</div>
+                                            
+                                            {% if meeting.types|length > 0 %}
+                                                <div class="meeting-types">
+                                                    {% for type in meeting.types %}
+                                                        <span class="type-badge type-{{ type|lower }}">{{ type }}</span>
+                                                    {% endfor %}
+                                                </div>
+                                            {% endif %}
+                                            
+                                            {% if meeting.notes %}
+                                                <div class="meeting-notes">{{ meeting.notes }}</div>
+                                            {% endif %}
+                                            
+                                            {% if meeting.online_url %}
+                                                <a href="{{ meeting.online_url }}" class="online-link" target="_blank" rel="noopener">
+                                                    🌐 Online Meeting
+                                                </a>
+                                            {% endif %}
+                                        </div>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                </section>
             {% endfor %}
-            
-            {# Render the last location's meetings #}
-            {% if current_location != null and location_meetings|length > 0 %}
-                {% include 'location_section.html.twig' with {
-                    'location': current_location,
-                    'meetings': location_meetings
-                } %}
-            {% endif %}
         </div>
     {% endif %}
     
@@ -68,119 +103,282 @@
         </div>
     </div>
     
-    <footer style="margin-top: 50px; padding-top: 30px; border-top: 1px solid #ddd; text-align: center; color: #666; font-size: 0.9em;">
+    <footer>
         <p>Data sourced from <a href="https://www.seattleaa.org" target="_blank" rel="noopener">Seattle AA</a></p>
         <p>This is a static mirror for offline access. For the most current information, please visit the official Seattle AA website.</p>
-        <p style="font-size: 0.8em; margin-top: 20px;">Generated on {{ generated_at }}</p>
+        <p class="build-info">Generated on {{ generated_at }} • {{ total_meeting_count }} total meetings in database</p>
     </footer>
     
     <style>
+        /* Mobile-first responsive design */
+        * {
+            box-sizing: border-box;
+        }
+        
         .breadcrumb {
-            margin-bottom: 20px;
+            margin-bottom: 1rem;
         }
         
         .breadcrumb a {
             color: #3498db;
             text-decoration: none;
-            font-size: 0.9em;
+            font-size: 0.9rem;
+            padding: 0.5rem 0;
+            display: inline-block;
         }
         
         .breadcrumb a:hover {
             text-decoration: underline;
         }
         
+        h1 {
+            margin-bottom: 0.5rem;
+        }
+        
         .subtitle {
             color: #666;
-            font-size: 1.1em;
-            margin: -10px 0 30px 0;
+            font-size: 1.1rem;
+            margin: 0 0 1.5rem 0;
         }
         
         .day-stats {
             background: #e8f4f8;
-            padding: 15px;
-            border-radius: 8px;
-            margin-bottom: 30px;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            margin-bottom: 1.5rem;
         }
         
-        .location-section {
-            margin-bottom: 40px;
+        .day-stats p {
+            margin: 0;
+        }
+        
+        /* Neighborhood Navigation */
+        .neighborhood-nav {
+            background: #f8f9fa;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            margin-bottom: 2rem;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .neighborhood-nav h3 {
+            margin: 0 0 0.75rem 0;
+            font-size: 1rem;
+            color: #666;
+        }
+        
+        .neighborhood-links {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+        }
+        
+        .neighborhood-link {
             background: white;
-            border-radius: 10px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            color: #2c3e50;
+            text-decoration: none;
+            padding: 0.5rem 1rem;
+            border-radius: 1.5rem;
+            border: 1px solid #ddd;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            transition: all 0.2s;
+            font-size: 0.9rem;
+        }
+        
+        .neighborhood-link:hover,
+        .neighborhood-link:focus {
+            background: #3498db;
+            color: white;
+            border-color: #3498db;
+            transform: translateY(-1px);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .badge {
+            background: #e0e0e0;
+            color: #666;
+            padding: 0.2rem 0.5rem;
+            border-radius: 1rem;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+        
+        .neighborhood-link:hover .badge {
+            background: rgba(255,255,255,0.3);
+            color: white;
+        }
+        
+        /* Neighborhood Sections */
+        .neighborhood-section {
+            margin-bottom: 3rem;
+            scroll-margin-top: 5rem;
+        }
+        
+        .neighborhood-header {
+            background: #34495e;
+            color: white;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+        
+        .neighborhood-icon {
+            font-size: 1.5rem;
+        }
+        
+        .neighborhood-count {
+            margin-left: auto;
+            font-size: 0.9rem;
+            font-weight: normal;
+            opacity: 0.9;
+        }
+        
+        /* Location Cards */
+        .locations-grid {
+            display: grid;
+            gap: 1rem;
+            grid-template-columns: 1fr;
+        }
+        
+        .location-card {
+            background: white;
+            border-radius: 0.5rem;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
             overflow: hidden;
+            transition: box-shadow 0.2s;
+        }
+        
+        .location-card:hover {
+            box-shadow: 0 4px 8px rgba(0,0,0,0.15);
         }
         
         .location-header {
-            background: #34495e;
-            color: white;
-            padding: 15px 20px;
-            font-weight: 600;
-            font-size: 1.1em;
+            background: #f8f9fa;
+            padding: 1rem;
+            border-bottom: 1px solid #e0e0e0;
         }
         
-        .location-meetings {
-            padding: 0;
-        }
-        
-        .meeting {
-            background: white;
-            padding: 20px;
-            border-bottom: 1px solid #eee;
-            border-left: none;
-            margin-bottom: 0;
-            border-radius: 0;
-        }
-        
-        .meeting:last-child {
-            border-bottom: none;
-        }
-        
-        .meeting h2 {
+        .location-name {
+            margin: 0 0 0.5rem 0;
             color: #2c3e50;
-            margin-bottom: 10px;
-            font-size: 1.2em;
+            font-size: 1.1rem;
+        }
+        
+        .location-address {
+            color: #666;
+            font-size: 0.9rem;
+        }
+        
+        /* Meeting Items */
+        .meeting-times {
+            padding: 0.5rem 0;
+        }
+        
+        .meeting-item {
+            padding: 1rem;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        
+        .meeting-item:last-child {
+            border-bottom: none;
         }
         
         .meeting-time {
             color: #27ae60;
             font-weight: 600;
-            font-size: 1.1em;
-            margin-bottom: 8px;
+            font-size: 1.1rem;
+            margin-bottom: 0.25rem;
         }
         
-        .meeting-address {
+        .meeting-name {
+            color: #2c3e50;
+            font-weight: 500;
+            margin-bottom: 0.5rem;
+        }
+        
+        .meeting-types {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.25rem;
+            margin-bottom: 0.5rem;
+        }
+        
+        .type-badge {
+            font-size: 0.75rem;
+            padding: 0.2rem 0.5rem;
+            border-radius: 0.25rem;
+            background: #e0e0e0;
             color: #666;
-            margin-bottom: 8px;
+            text-transform: uppercase;
+            font-weight: 600;
         }
         
-        .meeting-details {
-            color: #7f8c8d;
-            font-size: 0.9em;
+        .type-badge.type-o {
+            background: #2ecc71;
+            color: white;
+        }
+        
+        .type-badge.type-c {
+            background: #e74c3c;
+            color: white;
+        }
+        
+        .type-badge.type-on {
+            background: #3498db;
+            color: white;
+        }
+        
+        .meeting-notes {
+            font-size: 0.85rem;
+            color: #666;
             font-style: italic;
+            margin-top: 0.5rem;
         }
         
+        .online-link {
+            display: inline-block;
+            margin-top: 0.5rem;
+            color: #3498db;
+            text-decoration: none;
+            font-size: 0.9rem;
+            padding: 0.25rem 0;
+        }
+        
+        .online-link:hover {
+            text-decoration: underline;
+        }
+        
+        /* Navigation */
         .navigation {
-            margin: 50px 0;
-            padding: 20px;
+            margin: 3rem 0 2rem;
+            padding: 1.5rem;
             background: #f8f9fa;
-            border-radius: 10px;
+            border-radius: 0.5rem;
         }
         
         .nav-links {
             display: flex;
-            justify-content: space-between;
-            align-items: center;
-            gap: 20px;
+            gap: 1rem;
+            flex-direction: column;
         }
         
         .nav-link {
             text-decoration: none;
-            padding: 12px 20px;
-            border-radius: 6px;
+            padding: 1rem;
+            border-radius: 0.5rem;
             font-weight: 500;
             transition: all 0.2s;
-            flex: 1;
             text-align: center;
+            display: block;
         }
         
         .nav-link.prev,
@@ -194,27 +392,86 @@
             color: white;
         }
         
-        .nav-link:hover {
+        .nav-link:hover,
+        .nav-link:focus {
             transform: translateY(-2px);
             box-shadow: 0 4px 8px rgba(0,0,0,0.2);
         }
         
-        @media (max-width: 768px) {
+        /* Footer */
+        footer {
+            margin-top: 3rem;
+            padding-top: 2rem;
+            border-top: 1px solid #ddd;
+            text-align: center;
+            color: #666;
+            font-size: 0.9rem;
+        }
+        
+        footer p {
+            margin: 0.5rem 0;
+        }
+        
+        footer a {
+            color: #3498db;
+        }
+        
+        .build-info {
+            font-size: 0.8rem;
+            margin-top: 1rem;
+            opacity: 0.8;
+        }
+        
+        /* Tablet and larger screens */
+        @media (min-width: 768px) {
+            .neighborhood-links {
+                gap: 0.75rem;
+            }
+            
+            .locations-grid {
+                grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
+            }
+            
             .nav-links {
-                flex-direction: column;
+                flex-direction: row;
+                justify-content: space-between;
+                align-items: center;
             }
             
             .nav-link {
-                width: 100%;
+                flex: 1;
+                max-width: 250px;
             }
             
-            .location-header {
-                padding: 12px 15px;
-                font-size: 1em;
+            .neighborhood-header {
+                padding: 1rem 1.5rem;
+            }
+        }
+        
+        /* Desktop screens */
+        @media (min-width: 1200px) {
+            .locations-grid {
+                grid-template-columns: repeat(auto-fill, minmax(450px, 1fr));
+                gap: 1.5rem;
+            }
+        }
+        
+        /* High contrast for accessibility */
+        @media (prefers-contrast: high) {
+            .type-badge {
+                border: 1px solid currentColor;
             }
             
-            .meeting {
-                padding: 15px;
+            .neighborhood-link {
+                border-width: 2px;
+            }
+        }
+        
+        /* Reduced motion */
+        @media (prefers-reduced-motion: reduce) {
+            * {
+                transition: none !important;
+                animation: none !important;
             }
         }
     </style>

@@ -30,7 +30,14 @@
             
             {# Days of the month #}
             {% for day in 1..calendar.days_in_month %}
-                {% set meeting_count = meetings_by_day[day]|length %}
+                {% set neighborhoods = meetings_by_day[day] %}
+                {% set meeting_count = 0 %}
+                {% for locations in neighborhoods %}
+                    {% for location in locations %}
+                        {% set meeting_count = meeting_count + location.meetings|length %}
+                    {% endfor %}
+                {% endfor %}
+                
                 <div class="calendar-day {% if meeting_count > 0 %}has-meetings{% endif %}">
                     <div class="day-number">{{ day }}</div>
                     
@@ -50,7 +57,14 @@
         <h2>Quick Access</h2>
         <div class="day-links">
             {% for day in 1..calendar.days_in_month %}
-                {% set meeting_count = meetings_by_day[day]|length %}
+                {% set neighborhoods = meetings_by_day[day] %}
+                {% set meeting_count = 0 %}
+                {% for locations in neighborhoods %}
+                    {% for location in locations %}
+                        {% set meeting_count = meeting_count + location.meetings|length %}
+                    {% endfor %}
+                {% endfor %}
+                
                 {% if meeting_count > 0 %}
                     {% set date_string = calendar.year ~ '-' ~ ('%02d'|format(calendar.month_number)) ~ '-' ~ ('%02d'|format(day)) %}
                     {% set day_name = date_string|date('l') %}

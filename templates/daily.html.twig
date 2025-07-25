@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="AA Meetings for {{ formatted_date }} - Seattle Area">
+    <meta name="theme-color" content="#3182ce">
+    <link rel="stylesheet" href="../css/styles.css">
+    <title>{{ day_name }}, {{ formatted_date }} - AA Meetings</title>
+</head>
+<body>
+    <div class="container">
+        <nav class="nav">
+            <div class="nav-links">
+                <a href="../index.html" class="nav-link">← Back to Main Directory</a>
+            </div>
+        </nav>
+        
+        <h1>Meetings for {{ day_name }}, {{ formatted_date }}</h1>
+        
+        <div class="stats">
+            {% set total_meetings = online_meetings|length + in_person_meetings|length + hybrid_meetings|length %}
+            <p><strong>{{ total_meetings }} meetings scheduled</strong></p>
+            <p><strong>Online:</strong> {{ online_meetings|length }} • <strong>In-Person:</strong> {{ in_person_meetings|length }} • <strong>Hybrid:</strong> {{ hybrid_meetings|length }}</p>
+            <p><strong>Generated:</strong> {{ generated_at }}</p>
+        </div>
+        
+        <!-- Quick navigation -->
+        <nav class="section-nav">
+            <a href="#online" class="section-link">Online ({{ online_meetings|length }})</a>
+            <a href="#in-person" class="section-link">In-Person ({{ in_person_meetings|length }})</a>
+            <a href="#hybrid" class="section-link">Hybrid ({{ hybrid_meetings|length }})</a>
+        </nav>
+        
+        <!-- Online Meetings Section -->
+        <section id="online" class="meeting-section">
+            <h2>Online Meetings</h2>
+            
+            {% if online_meetings|length > 0 %}
+                <div class="meetings-list">
+                    {% for meeting in online_meetings %}
+                        <div class="meeting-card">
+                            <div class="meeting-time">{{ meeting.time_formatted ?: 'Time TBD' }}</div>
+                            <div class="meeting-name">
+                                {% if meeting.url %}
+                                    <a href="{{ meeting.url }}" target="_blank" rel="noopener">{{ meeting.name }}</a>
+                                {% else %}
+                                    {{ meeting.name }}
+                                {% endif %}
+                            </div>
+                            
+                            {% if meeting.types %}
+                                <div class="meeting-types">
+                                    Types: {{ meeting.types is iterable ? meeting.types|join(', ') : meeting.types }}
+                                </div>
+                            {% endif %}
+                            
+                            <div class="meeting-links">
+                                {% if meeting.conference_url %}
+                                    <a href="{{ meeting.conference_url }}" target="_blank" rel="noopener" class="zoom-link">🌐 Zoom Link</a>
+                                {% endif %}
+                            </div>
+                            
+                            {% if meeting.entity %}
+                                <div class="meeting-entity">
+                                    Provided By: 
+                                    {% if meeting.entity_url %}
+                                        <a href="{{ meeting.entity_url }}" target="_blank" rel="noopener">{{ meeting.entity }}</a>
+                                    {% else %}
+                                        {{ meeting.entity }}
+                                    {% endif %}
+                                </div>
+                            {% endif %}
+                        </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <p class="no-meetings">No online meetings scheduled for this day.</p>
+            {% endif %}
+        </section>
+        
+        <!-- In-Person Meetings Section -->
+        <section id="in-person" class="meeting-section">
+            <h2>In-Person Meetings</h2>
+            
+            {% if in_person_meetings|length > 0 %}
+                {% for city, city_meetings in in_person_meetings %}
+                    <div class="city-group">
+                        <h3 class="city-header">{{ city }}</h3>
+                        <div class="meetings-list">
+                            {% for meeting in city_meetings %}
+                                <div class="meeting-card">
+                                    <div class="meeting-time">{{ meeting.time_formatted ?: 'Time TBD' }}</div>
+                                    <div class="meeting-name">
+                                        {% if meeting.url %}
+                                            <a href="{{ meeting.url }}" target="_blank" rel="noopener">{{ meeting.name }}</a>
+                                        {% else %}
+                                            {{ meeting.name }}
+                                        {% endif %}
+                                    </div>
+                                    
+                                    {% if meeting.types %}
+                                        <div class="meeting-types">
+                                            Types: {{ meeting.types is iterable ? meeting.types|join(', ') : meeting.types }}
+                                        </div>
+                                    {% endif %}
+                                    
+                                    <div class="meeting-links">
+                                        {% if meeting.formatted_address %}
+                                            <a href="https://maps.google.com/?saddr=Current+Location&daddr={{ meeting.formatted_address|url_encode }}" target="_blank" rel="noopener" class="address-link">📍 {{ meeting.formatted_address }}</a>
+                                        {% endif %}
+                                    </div>
+                                    
+                                    {% if meeting.entity %}
+                                        <div class="meeting-entity">
+                                            Provided By: 
+                                            {% if meeting.entity_url %}
+                                                <a href="{{ meeting.entity_url }}" target="_blank" rel="noopener">{{ meeting.entity }}</a>
+                                            {% else %}
+                                                {{ meeting.entity }}
+                                            {% endif %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                {% endfor %}
+            {% else %}
+                <p class="no-meetings">No in-person meetings scheduled for this day.</p>
+            {% endif %}
+        </section>
+        
+        <!-- Hybrid Meetings Section -->
+        <section id="hybrid" class="meeting-section">
+            <h2>Hybrid Meetings</h2>
+            
+            {% if hybrid_meetings|length > 0 %}
+                {% for city, city_meetings in hybrid_meetings %}
+                    <div class="city-group">
+                        <h3 class="city-header">{{ city }}</h3>
+                        <div class="meetings-list">
+                            {% for meeting in city_meetings %}
+                                <div class="meeting-card">
+                                    <div class="meeting-time">{{ meeting.time_formatted ?: 'Time TBD' }}</div>
+                                    <div class="meeting-name">
+                                        {% if meeting.url %}
+                                            <a href="{{ meeting.url }}" target="_blank" rel="noopener">{{ meeting.name }}</a>
+                                        {% else %}
+                                            {{ meeting.name }}
+                                        {% endif %}
+                                    </div>
+                                    
+                                    {% if meeting.types %}
+                                        <div class="meeting-types">
+                                            Types: {{ meeting.types is iterable ? meeting.types|join(', ') : meeting.types }}
+                                        </div>
+                                    {% endif %}
+                                    
+                                    <div class="meeting-links">
+                                        {% if meeting.formatted_address %}
+                                            <a href="https://maps.google.com/?saddr=Current+Location&daddr={{ meeting.formatted_address|url_encode }}" target="_blank" rel="noopener" class="address-link">📍 {{ meeting.formatted_address }}</a>
+                                        {% endif %}
+                                        {% if meeting.conference_url %}
+                                            <a href="{{ meeting.conference_url }}" target="_blank" rel="noopener" class="zoom-link">🌐 Zoom Link</a>
+                                        {% endif %}
+                                    </div>
+                                    
+                                    {% if meeting.entity %}
+                                        <div class="meeting-entity">
+                                            Provided By: 
+                                            {% if meeting.entity_url %}
+                                                <a href="{{ meeting.entity_url }}" target="_blank" rel="noopener">{{ meeting.entity }}</a>
+                                            {% else %}
+                                                {{ meeting.entity }}
+                                            {% endif %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                {% endfor %}
+            {% else %}
+                <p class="no-meetings">No hybrid meetings scheduled for this day.</p>
+            {% endif %}
+        </section>
+        
+        <div class="footer">
+            <p><strong>Data Source:</strong> Live TSML data from <a href="https://www.seattleaa.org" target="_blank" rel="noopener">Seattle AA</a></p>
+            <p>Meeting types: D=Discussion, O=Open, C=Closed, S=Step Study, etc.</p>
+            <p style="margin-top: 1rem; font-size: 0.8rem;">Generated: {{ generated_at }}</p>
+        </div>
+    </div>
+</body>
+</html>
