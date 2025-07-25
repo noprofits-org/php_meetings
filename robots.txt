@@ -1,0 +1,8 @@
+User-agent: *
+Allow: /
+Disallow: /vendor/
+Disallow: /src/
+Disallow: /scripts/
+Disallow: /templates/
+
+Sitemap: https://noprofits.org/php_meetings/sitemap.xml
