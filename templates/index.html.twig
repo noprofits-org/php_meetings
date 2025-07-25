@@ -3,10 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="AA Meetings Directory for Seattle area - Real-time TSML data">
+    <meta name="description" content="Today's AA Meetings for {{ todays_data.formatted_date }} - {{ todays_data.stats.total_today }} meetings available ({{ todays_data.stats.upcoming }} upcoming, {{ todays_data.stats.current }} current). Seattle area directory with real-time TSML data.">
     <meta name="theme-color" content="#3182ce">
     <link rel="stylesheet" href="css/styles.css">
-    <title>AA Meetings Directory - Seattle Area</title>
+    <title>Today's AA Meetings - {{ todays_data.formatted_date }} - Seattle Area</title>
     <script type="application/ld+json">
     {
         "@context": "https://schema.org",
@@ -33,41 +33,270 @@
 </head>
 <body>
     <div class="container">
-        <h1>AA Meetings Directory</h1>
-        <p style="color: #4a5568; margin-bottom: 2rem;">Seattle Area - Current Week & Next</p>
+        {% if todays_data.stats.total_today > 0 %}
+        {% set current_meetings = todays_data.meetings|filter(m => m.status == 'current') %}
+        {% if current_meetings|length > 0 %}
+        <div id="current-meetings" class="meeting-section">
+            <h2 style="background: #22c55e;">▶️ Meetings Happening Now ({{ current_meetings|length }})</h2>
+            {% for meeting in current_meetings %}
+                <div class="meeting-card" style="border-left: 4px solid #22c55e;" itemscope itemtype="https://schema.org/Event">
+                    <meta itemprop="eventStatus" content="https://schema.org/EventScheduled">
+                    <meta itemprop="eventAttendanceMode" content="{% if meeting.attendance_category == 'online' %}https://schema.org/OnlineEventAttendanceMode{% elseif meeting.attendance_category == 'hybrid' %}https://schema.org/MixedEventAttendanceMode{% else %}https://schema.org/OfflineEventAttendanceMode{% endif %}">
+                    
+                    <div class="meeting-time" itemprop="startDate" content="{{ todays_data.date }}T{{ meeting.time|default('00:00') }}">
+                        {{ meeting.time|default('Time TBA') }}
+                        {% if meeting.end_time %} - {{ meeting.end_time }}{% endif %}
+                        <span style="background: #22c55e; color: white; padding: 0.25rem 0.5rem; border-radius: 0.25rem; font-size: 0.75rem; margin-left: 0.5rem;">LIVE NOW</span>
+                    </div>
+                    
+                    <div class="meeting-name">
+                        <span itemprop="name">{{ meeting.name }}</span>
+                    </div>
+                    
+                    {% if meeting.types %}
+                    <div class="meeting-types">{{ meeting.types|join(', ') }}</div>
+                    {% endif %}
+                    
+                    <div class="meeting-links">
+                        {% if meeting.conference_url %}
+                            <a href="{{ meeting.conference_url }}" class="zoom-link" target="_blank" rel="noopener" itemprop="url" style="background: #22c55e; color: white; border-color: #22c55e;">
+                                Join Live Meeting Now
+                            </a>
+                        {% endif %}
+                        
+                        {% if meeting.formatted_address %}
+                            <a href="https://maps.google.com/?q={{ meeting.formatted_address|url_encode }}" class="address-link" target="_blank" rel="noopener">
+                                📍 {{ meeting.formatted_address }}
+                            </a>
+                            <div itemprop="location" itemscope itemtype="https://schema.org/Place">
+                                <meta itemprop="name" content="{{ meeting.location|default(meeting.city) }}">
+                                <div itemprop="address" itemscope itemtype="https://schema.org/PostalAddress">
+                                    <meta itemprop="streetAddress" content="{{ meeting.formatted_address }}">
+                                    <meta itemprop="addressLocality" content="{{ meeting.city }}">
+                                    <meta itemprop="addressRegion" content="WA">
+                                    <meta itemprop="addressCountry" content="US">
+                                </div>
+                            </div>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="meeting-entity">
+                        <span style="background: {% if meeting.attendance_category == 'online' %}#dcfdf4{% elseif meeting.attendance_category == 'hybrid' %}#f3e8ff{% else %}#fef2f2{% endif %}; padding: 0.25rem 0.5rem; border-radius: 0.25rem; font-size: 0.75rem; font-weight: 500;">
+                            {% if meeting.attendance_category == 'online' %}🌐 Online{% elseif meeting.attendance_category == 'hybrid' %}🔗 Hybrid{% else %}📍 In-Person{% endif %}
+                        </span>
+                        {% if meeting.city %} • {{ meeting.city }}{% endif %}
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div id="search-meetings" class="meeting-section">
+            <h2 style="background: #3182ce;">🔍 Find a Meeting</h2>
+            <p style="margin-bottom: 1rem; color: #4a5568;">No meetings happening right now. Search for meetings by location, time, or type.</p>
+            
+            <div id="search-interface">
+                <div class="search-form">
+                    <div class="search-input-group">
+                        <input type="text" id="search-input" placeholder="Search meetings by name, location, or city..." class="search-input">
+                        <button id="search-button" class="search-button">Search</button>
+                    </div>
+                    
+                    <div class="filter-grid">
+                        <select id="attendance-filter" class="filter-select">
+                            <option value="">All Types</option>
+                            <option value="online">Online Only</option>
+                            <option value="in_person">In-Person Only</option>
+                            <option value="hybrid">Hybrid Only</option>
+                        </select>
+                        
+                        <select id="day-filter" class="filter-select">
+                            <option value="">Any Day</option>
+                            <option value="0">Sunday</option>
+                            <option value="1">Monday</option>
+                            <option value="2">Tuesday</option>
+                            <option value="3">Wednesday</option>
+                            <option value="4">Thursday</option>
+                            <option value="5">Friday</option>
+                            <option value="6">Saturday</option>
+                        </select>
+                        
+                        <select id="time-filter" class="filter-select">
+                            <option value="">Any Time</option>
+                            <option value="morning">Morning (6am-12pm)</option>
+                            <option value="afternoon">Afternoon (12pm-6pm)</option>
+                            <option value="evening">Evening (6pm-10pm)</option>
+                            <option value="late">Late Night (10pm-2am)</option>
+                        </select>
+                        
+                        <button id="clear-filters" class="clear-button">Clear All</button>
+                    </div>
+                </div>
+                
+                <div id="search-results" class="search-results hidden">
+                    <div class="results-header">
+                        <h3>Search Results</h3>
+                        <span id="results-count" class="results-count"></span>
+                    </div>
+                    <div id="results-list" class="results-list"></div>
+                </div>
+                
+                <div id="no-results" class="no-results hidden">
+                    <p>No meetings found matching your criteria. Try adjusting your filters or search terms.</p>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+        {% endif %}
+        
+        <h1>Today's AA Meetings</h1>
+        <p style="color: #4a5568; margin-bottom: 2rem;">{{ todays_data.formatted_date }} - Seattle Area</p>
         
         <div class="stats">
-            <p><strong>Total meetings in database:</strong> {{ total_meetings }}</p>
-            <p><strong>Meeting breakdown:</strong> {{ process_stats.online_count }} Online • {{ process_stats.in_person_count }} In-Person • {{ process_stats.hybrid_count }} Hybrid</p>
-            <p><strong>Cities with meetings:</strong> {{ process_stats.cities_found|length }}</p>
-            <p><strong>Days with meetings (next 5 weeks):</strong> {{ days_with_meetings }}</p>
+            <p><strong>Today's meetings:</strong> {{ todays_data.stats.total_today }} ({{ todays_data.stats.upcoming }} upcoming • {{ todays_data.stats.current }} current • {{ todays_data.stats.past }} past)</p>
+            <p><strong>Today's breakdown:</strong> {{ todays_data.stats.online }} Online • {{ todays_data.stats.in_person }} In-Person • {{ todays_data.stats.hybrid }} Hybrid</p>
+            <p><strong>Total in database:</strong> {{ total_meetings }} meetings across {{ process_stats.cities_found|length }} cities</p>
             <p><strong>Last updated:</strong> {{ generated_at }}</p>
         </div>
         
-        <div class="stats" style="background: #f0fff4; border: 1px solid #9ae6b4;">
-            <h3 style="color: #22543d; margin-bottom: 0.5rem;">Cities Found:</h3>
-            <p style="color: #22543d;">{{ process_stats.cities_found|join(', ') }}</p>
-        </div>
         
-        <section id="daily-view">
-            <h2>Browse by Date</h2>
-            <p style="margin-bottom: 1rem; color: #4a5568;">Click on any day to view meetings organized by Online, In-Person, and Hybrid categories.</p>
+        {% if todays_data.stats.total_today > 0 %}
+        <section id="todays-meetings">
+            <div class="section-nav">
+                <a href="#upcoming-meetings" class="section-link">🕐 Upcoming Meetings ({{ todays_data.stats.upcoming }})</a>
+                {% if todays_data.stats.current > 0 %}
+                <a href="#current-meetings" class="section-link">▶️ Current Meetings ({{ todays_data.stats.current }})</a>
+                {% endif %}
+                {% if todays_data.stats.past > 0 %}
+                <a href="#past-meetings" class="section-link">✅ Past Meetings ({{ todays_data.stats.past }})</a>
+                {% endif %}
+            </div>
+
+            {% set upcoming_meetings = todays_data.meetings|filter(m => m.status == 'upcoming') %}
+            {% if upcoming_meetings|length > 0 %}
+            <div id="upcoming-meetings" class="meeting-section">
+                <h2>🕐 Upcoming Meetings ({{ upcoming_meetings|length }})</h2>
+                {% for meeting in upcoming_meetings %}
+                    <div class="meeting-card" itemscope itemtype="https://schema.org/Event">
+                        <meta itemprop="eventStatus" content="https://schema.org/EventScheduled">
+                        <meta itemprop="eventAttendanceMode" content="{% if meeting.attendance_category == 'online' %}https://schema.org/OnlineEventAttendanceMode{% elseif meeting.attendance_category == 'hybrid' %}https://schema.org/MixedEventAttendanceMode{% else %}https://schema.org/OfflineEventAttendanceMode{% endif %}">
+                        
+                        <div class="meeting-time" itemprop="startDate" content="{{ todays_data.date }}T{{ meeting.time|default('00:00') }}">
+                            {{ meeting.time|default('Time TBA') }}
+                            {% if meeting.end_time %} - {{ meeting.end_time }}{% endif %}
+                        </div>
+                        
+                        <div class="meeting-name">
+                            <span itemprop="name">{{ meeting.name }}</span>
+                        </div>
+                        
+                        {% if meeting.types %}
+                        <div class="meeting-types">{{ meeting.types|join(', ') }}</div>
+                        {% endif %}
+                        
+                        <div class="meeting-links">
+                            {% if meeting.conference_url %}
+                                <a href="{{ meeting.conference_url }}" class="zoom-link" target="_blank" rel="noopener" itemprop="url">
+                                    Join Online Meeting
+                                </a>
+                            {% endif %}
+                            
+                            {% if meeting.formatted_address %}
+                                <a href="https://maps.google.com/?q={{ meeting.formatted_address|url_encode }}" class="address-link" target="_blank" rel="noopener">
+                                    📍 {{ meeting.formatted_address }}
+                                </a>
+                                <div itemprop="location" itemscope itemtype="https://schema.org/Place">
+                                    <meta itemprop="name" content="{{ meeting.location|default(meeting.city) }}">
+                                    <div itemprop="address" itemscope itemtype="https://schema.org/PostalAddress">
+                                        <meta itemprop="streetAddress" content="{{ meeting.formatted_address }}">
+                                        <meta itemprop="addressLocality" content="{{ meeting.city }}">
+                                        <meta itemprop="addressRegion" content="WA">
+                                        <meta itemprop="addressCountry" content="US">
+                                    </div>
+                                </div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="meeting-entity">
+                            <span style="background: {% if meeting.attendance_category == 'online' %}#dcfdf4{% elseif meeting.attendance_category == 'hybrid' %}#f3e8ff{% else %}#fef2f2{% endif %}; padding: 0.25rem 0.5rem; border-radius: 0.25rem; font-size: 0.75rem; font-weight: 500;">
+                                {% if meeting.attendance_category == 'online' %}🌐 Online{% elseif meeting.attendance_category == 'hybrid' %}🔗 Hybrid{% else %}📍 In-Person{% endif %}
+                            </span>
+                            {% if meeting.city %} • {{ meeting.city }}{% endif %}
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+
+            {% set past_meetings = todays_data.meetings|filter(m => m.status == 'past') %}
+            {% if past_meetings|length > 0 %}
+            <div id="past-meetings" class="meeting-section">
+                <h2 style="background: #6b7280;">✅ Earlier Today ({{ past_meetings|length }})</h2>
+                {% for meeting in past_meetings %}
+                    <div class="meeting-card" style="opacity: 0.7;" itemscope itemtype="https://schema.org/Event">
+                        <meta itemprop="eventStatus" content="https://schema.org/EventScheduled">
+                        <meta itemprop="eventAttendanceMode" content="{% if meeting.attendance_category == 'online' %}https://schema.org/OnlineEventAttendanceMode{% elseif meeting.attendance_category == 'hybrid' %}https://schema.org/MixedEventAttendanceMode{% else %}https://schema.org/OfflineEventAttendanceMode{% endif %}">
+                        
+                        <div class="meeting-time" itemprop="startDate" content="{{ todays_data.date }}T{{ meeting.time|default('00:00') }}">
+                            {{ meeting.time|default('Time TBA') }}
+                            {% if meeting.end_time %} - {{ meeting.end_time }}{% endif %}
+                        </div>
+                        
+                        <div class="meeting-name">
+                            <span itemprop="name">{{ meeting.name }}</span>
+                        </div>
+                        
+                        {% if meeting.types %}
+                        <div class="meeting-types">{{ meeting.types|join(', ') }}</div>
+                        {% endif %}
+                        
+                        <div class="meeting-links">
+                            {% if meeting.formatted_address %}
+                                <a href="https://maps.google.com/?q={{ meeting.formatted_address|url_encode }}" class="address-link" target="_blank" rel="noopener">
+                                    📍 {{ meeting.formatted_address }}
+                                </a>
+                                <div itemprop="location" itemscope itemtype="https://schema.org/Place">
+                                    <meta itemprop="name" content="{{ meeting.location|default(meeting.city) }}">
+                                    <div itemprop="address" itemscope itemtype="https://schema.org/PostalAddress">
+                                        <meta itemprop="streetAddress" content="{{ meeting.formatted_address }}">
+                                        <meta itemprop="addressLocality" content="{{ meeting.city }}">
+                                        <meta itemprop="addressRegion" content="WA">
+                                        <meta itemprop="addressCountry" content="US">
+                                    </div>
+                                </div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="meeting-entity">
+                            <span style="background: {% if meeting.attendance_category == 'online' %}#dcfdf4{% elseif meeting.attendance_category == 'hybrid' %}#f3e8ff{% else %}#fef2f2{% endif %}; padding: 0.25rem 0.5rem; border-radius: 0.25rem; font-size: 0.75rem; font-weight: 500;">
+                                {% if meeting.attendance_category == 'online' %}🌐 Online{% elseif meeting.attendance_category == 'hybrid' %}🔗 Hybrid{% else %}📍 In-Person{% endif %}
+                            </span>
+                            {% if meeting.city %} • {{ meeting.city }}{% endif %}
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+        </section>
+        
+        <section id="browse-other-days" style="margin-top: 3rem;">
+            <h2>Browse Other Days</h2>
+            <p style="margin-bottom: 1rem; color: #4a5568;">View meetings for other days this week and next.</p>
             
-            <div class="day-nav">
+            <div class="day-nav" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem;">
                 {% for date_key, date_info in meetings_by_date %}
                     {% set total_day_meetings = date_info.online|length + date_info.in_person|length + date_info.hybrid|length %}
-                    {% if total_day_meetings > 0 %}
-                        <a href="daily/{{ date_key }}.html" class="day-card">
-                            <div class="day-card-header">
-                                <span class="day-name">{{ date_info.day_name }}</span>
-                                <span class="day-date">{{ date_info.formatted_date }}</span>
+                    {% if total_day_meetings > 0 and date_key != todays_data.date %}
+                        <a href="daily/{{ date_key }}.html" class="day-card" style="display: block; background: white; border: 1px solid #e2e8f0; border-radius: 0.5rem; padding: 1rem; text-decoration: none; color: inherit; transition: all 0.2s; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+                            <div class="day-card-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; padding-bottom: 0.5rem; border-bottom: 1px solid #e2e8f0;">
+                                <span class="day-name" style="font-size: 1.125rem; font-weight: 600; color: #2d3748;">{{ date_info.day_name }}</span>
+                                <span class="day-date" style="font-size: 0.8rem; color: #4a5568;">{{ date_info.formatted_date }}</span>
                             </div>
-                            <div class="day-card-stats">
-                                <span class="total-count">{{ total_day_meetings }} meetings</span>
-                                <div class="meeting-breakdown">
-                                    <span class="online-count">{{ date_info.online|length }} Online</span>
-                                    <span class="inperson-count">{{ date_info.in_person|length }} In-Person</span>
-                                    <span class="hybrid-count">{{ date_info.hybrid|length }} Hybrid</span>
+                            <div class="day-card-stats" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
+                                <span class="total-count" style="font-size: 1rem; font-weight: 600; color: #3182ce;">{{ total_day_meetings }} meetings</span>
+                                <div class="meeting-breakdown" style="display: flex; gap: 0.5rem; font-size: 0.75rem;">
+                                    <span style="color: #059669; font-weight: 500;">{{ date_info.online|length }} Online</span>
+                                    <span style="color: #dc2626; font-weight: 500;">{{ date_info.in_person|length }} In-Person</span>
+                                    <span style="color: #7c3aed; font-weight: 500;">{{ date_info.hybrid|length }} Hybrid</span>
                                 </div>
                             </div>
                         </a>
@@ -75,6 +304,41 @@
                 {% endfor %}
             </div>
         </section>
+        {% else %}
+        <section id="no-meetings-today">
+            <div class="no-meetings">
+                <h2>No Meetings Today</h2>
+                <p>There are no AA meetings scheduled for {{ todays_data.formatted_date }}.</p>
+                <p style="margin-top: 1rem;">Check other days below for available meetings.</p>
+            </div>
+            
+            <section id="browse-other-days" style="margin-top: 2rem;">
+                <h2>Browse Other Days</h2>
+                <p style="margin-bottom: 1rem; color: #4a5568;">View meetings for other days this week and next.</p>
+                
+                <div class="day-nav">
+                    {% for date_key, date_info in meetings_by_date %}
+                        {% set total_day_meetings = date_info.online|length + date_info.in_person|length + date_info.hybrid|length %}
+                        {% if total_day_meetings > 0 %}
+                            <a href="daily/{{ date_key }}.html" class="day-card">
+                                <div class="day-card-header">
+                                    <span class="day-name">{{ date_info.day_name }}</span>
+                                    <span class="day-date">{{ date_info.formatted_date }}</span>
+                                </div>
+                                <div class="day-card-stats">
+                                    <span class="total-count">{{ total_day_meetings }} meetings</span>
+                                    <div class="meeting-breakdown">
+                                        <span class="online-count">{{ date_info.online|length }} Online</span>
+                                        <span class="inperson-count">{{ date_info.in_person|length }} In-Person</span>
+                                        <span class="hybrid-count">{{ date_info.hybrid|length }} Hybrid</span>
+                                    </div>
+                                </div>
+                            </a>
+                        {% endif %}
+                    {% endfor %}
+                </div>
+            </section>
+        {% endif %}
         
         <div class="footer">
             <p><strong>Data Source:</strong> Live TSML data from <a href="https://www.seattleaa.org" target="_blank" rel="noopener">Seattle AA</a></p>
@@ -84,100 +348,176 @@
         </div>
     </div>
     
-    <style>
-        /* Enhanced day cards */
-        .day-card {
-            display: block;
-            background: white;
-            border: 1px solid #e2e8f0;
-            border-radius: 0.5rem;
-            padding: 1rem;
-            text-decoration: none;
-            color: inherit;
-            transition: all 0.2s;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-        }
-        
-        .day-card:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 8px rgba(0,0,0,0.15);
-            border-color: #3182ce;
-        }
-        
-        .day-card-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 0.75rem;
-            padding-bottom: 0.5rem;
-            border-bottom: 1px solid #e2e8f0;
-        }
-        
-        .day-name {
-            font-size: 1.25rem;
-            font-weight: 600;
-            color: #2d3748;
-        }
-        
-        .day-date {
-            font-size: 0.9rem;
-            color: #4a5568;
-        }
-        
-        .day-card-stats {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            flex-wrap: wrap;
-            gap: 0.5rem;
-        }
-        
-        .total-count {
-            font-size: 1.1rem;
-            font-weight: 600;
-            color: #3182ce;
-        }
-        
-        .meeting-breakdown {
-            display: flex;
-            gap: 0.75rem;
-            font-size: 0.85rem;
-        }
-        
-        .online-count {
-            color: #059669;
-            font-weight: 500;
-        }
-        
-        .inperson-count {
-            color: #dc2626;
-            font-weight: 500;
-        }
-        
-        .hybrid-count {
-            color: #7c3aed;
-            font-weight: 500;
-        }
-        
-        @media (max-width: 768px) {
-            .day-card-header {
-                flex-direction: column;
-                align-items: flex-start;
-                gap: 0.25rem;
-            }
-            
-            .day-card-stats {
-                flex-direction: column;
-                align-items: flex-start;
-                gap: 0.5rem;
-            }
-            
-            .meeting-breakdown {
-                gap: 1rem;
-            }
-        }
-    </style>
+    <script>
+    // Meeting search functionality
+    let allMeetings = [];
+    let searchIndex = [];
     
-    <script src="js/search.js"></script>
+    // Load meeting data when page loads
+    document.addEventListener('DOMContentLoaded', async function() {
+        try {
+            const response = await fetch('data/meetings-optimized.json');
+            const data = await response.json();
+            allMeetings = [];
+            
+            // Flatten all meetings from all days
+            Object.values(data).forEach(dayData => {
+                if (dayData.online) allMeetings.push(...dayData.online);
+                if (dayData.in_person) {
+                    Object.values(dayData.in_person).forEach(cityMeetings => {
+                        allMeetings.push(...cityMeetings);
+                    });
+                }
+                if (dayData.hybrid) {
+                    Object.values(dayData.hybrid).forEach(cityMeetings => {
+                        allMeetings.push(...cityMeetings);
+                    });
+                }
+            });
+            
+            console.log('Loaded', allMeetings.length, 'meetings for search');
+        } catch (error) {
+            console.error('Failed to load meeting data:', error);
+        }
+    });
+    
+    // Search functionality
+    function performSearch() {
+        const searchTerm = document.getElementById('search-input').value.toLowerCase();
+        const attendanceFilter = document.getElementById('attendance-filter').value;
+        const dayFilter = document.getElementById('day-filter').value;
+        const timeFilter = document.getElementById('time-filter').value;
+        
+        let filteredMeetings = allMeetings.filter(meeting => {
+            // Text search
+            if (searchTerm) {
+                const searchableText = [
+                    meeting.name || '',
+                    meeting.location || '',
+                    meeting.city || '',
+                    meeting.formatted_address || '',
+                    meeting.region || '',
+                    (meeting.types || []).join(' ')
+                ].join(' ').toLowerCase();
+                
+                if (!searchableText.includes(searchTerm)) {
+                    return false;
+                }
+            }
+            
+            // Attendance filter
+            if (attendanceFilter && meeting.attendance_category !== attendanceFilter) {
+                return false;
+            }
+            
+            // Day filter
+            if (dayFilter && meeting.day != dayFilter) {
+                return false;
+            }
+            
+            // Time filter
+            if (timeFilter && meeting.time) {
+                const hour = parseInt(meeting.time.split(':')[0]);
+                const timeCategory = getTimeCategory(hour);
+                if (timeCategory !== timeFilter) {
+                    return false;
+                }
+            }
+            
+            return true;
+        });
+        
+        displaySearchResults(filteredMeetings);
+    }
+    
+    function getTimeCategory(hour) {
+        if (hour >= 6 && hour < 12) return 'morning';
+        if (hour >= 12 && hour < 18) return 'afternoon';
+        if (hour >= 18 && hour < 22) return 'evening';
+        return 'late';
+    }
+    
+    function displaySearchResults(meetings) {
+        const resultsContainer = document.getElementById('search-results');
+        const resultsCount = document.getElementById('results-count');
+        const resultsList = document.getElementById('results-list');
+        const noResults = document.getElementById('no-results');
+        
+        if (meetings.length === 0) {
+            resultsContainer.classList.add('hidden');
+            noResults.classList.remove('hidden');
+            return;
+        }
+        
+        noResults.classList.add('hidden');
+        resultsContainer.classList.remove('hidden');
+        resultsCount.textContent = `${meetings.length} meeting${meetings.length === 1 ? '' : 's'} found`;
+        
+        // Sort by day, then time
+        meetings.sort((a, b) => {
+            if (a.day !== b.day) return a.day - b.day;
+            return (a.time || '').localeCompare(b.time || '');
+        });
+        
+        const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+        
+        resultsList.innerHTML = meetings.map(meeting => `
+            <div class="meeting-card">
+                <div class="meeting-time">
+                    ${dayNames[meeting.day]} ${meeting.time || 'Time TBA'}
+                    ${meeting.end_time ? ` - ${meeting.end_time}` : ''}
+                </div>
+                <div class="meeting-name">${meeting.name || 'Unnamed Meeting'}</div>
+                ${meeting.types ? `<div class="meeting-types">${meeting.types.join(', ')}</div>` : ''}
+                <div class="meeting-links">
+                    ${meeting.conference_url ? `
+                        <a href="${meeting.conference_url}" class="zoom-link" target="_blank" rel="noopener">
+                            Join Online Meeting
+                        </a>
+                    ` : ''}
+                    ${meeting.formatted_address ? `
+                        <a href="https://maps.google.com/?q=${encodeURIComponent(meeting.formatted_address)}" class="address-link" target="_blank" rel="noopener">
+                            📍 ${meeting.formatted_address}
+                        </a>
+                    ` : ''}
+                </div>
+                <div class="meeting-entity">
+                    <span style="background: ${meeting.attendance_category === 'online' ? '#dcfdf4' : meeting.attendance_category === 'hybrid' ? '#f3e8ff' : '#fef2f2'}; padding: 0.25rem 0.5rem; border-radius: 0.25rem; font-size: 0.75rem; font-weight: 500;">
+                        ${meeting.attendance_category === 'online' ? '🌐 Online' : meeting.attendance_category === 'hybrid' ? '🔗 Hybrid' : '📍 In-Person'}
+                    </span>
+                    ${meeting.city ? ` • ${meeting.city}` : ''}
+                </div>
+            </div>
+        `).join('');
+    }
+    
+    function clearFilters() {
+        document.getElementById('search-input').value = '';
+        document.getElementById('attendance-filter').value = '';
+        document.getElementById('day-filter').value = '';
+        document.getElementById('time-filter').value = '';
+        document.getElementById('search-results').classList.add('hidden');
+        document.getElementById('no-results').classList.add('hidden');
+    }
+    
+    // Event listeners
+    document.getElementById('search-button').addEventListener('click', performSearch);
+    document.getElementById('search-input').addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            performSearch();
+        }
+    });
+    document.getElementById('attendance-filter').addEventListener('change', performSearch);
+    document.getElementById('day-filter').addEventListener('change', performSearch);
+    document.getElementById('time-filter').addEventListener('change', performSearch);
+    document.getElementById('clear-filters').addEventListener('click', clearFilters);
+    
+    // Debounced search on input
+    let searchTimeout;
+    document.getElementById('search-input').addEventListener('input', function() {
+        clearTimeout(searchTimeout);
+        searchTimeout = setTimeout(performSearch, 300);
+    });
+    </script>
 </body>
 </html>

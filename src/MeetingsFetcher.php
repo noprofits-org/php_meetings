@@ -335,6 +335,110 @@ class MeetingsFetcher
     }
     
     /**
+     * Get meetings for today organized by time with status
+     */
+    public function getTodaysMeetings(array $meetings): array
+    {
+        $today = new \DateTime('now', new \DateTimeZone('America/Los_Angeles'));
+        $todayDayOfWeek = (int)$today->format('w'); // 0 = Sunday, 6 = Saturday
+        $currentTime = $today->format('H:i');
+        
+        $todaysMeetings = [];
+        $stats = [
+            'total_today' => 0,
+            'upcoming' => 0,
+            'current' => 0,
+            'past' => 0,
+            'online' => 0,
+            'in_person' => 0,
+            'hybrid' => 0
+        ];
+        
+        foreach ($meetings as $meeting) {
+            $meetingDay = isset($meeting['day']) ? (int)$meeting['day'] : null;
+            
+            // Only include meetings that happen today
+            if ($meetingDay === $todayDayOfWeek) {
+                if (!$this->shouldIncludeMeeting($meeting)) {
+                    continue;
+                }
+                
+                $stats['total_today']++;
+                
+                $attendanceOption = $this->getAttendanceOption($meeting);
+                $city = $this->extractCity(
+                    $meeting['formatted_address'] ?? '', 
+                    $meeting['region'] ?? ''
+                );
+                
+                // Count by type
+                switch ($attendanceOption) {
+                    case 'online':
+                        $stats['online']++;
+                        break;
+                    case 'in_person':
+                        $stats['in_person']++;
+                        break;
+                    case 'hybrid':
+                        $stats['hybrid']++;
+                        break;
+                }
+                
+                // Determine meeting status based on time
+                $meetingTime = $meeting['time'] ?? '';
+                $endTime = $meeting['end_time'] ?? '';
+                $status = $this->getMeetingStatus($meetingTime, $endTime, $currentTime);
+                
+                // Count by status
+                $stats[$status]++;
+                
+                // Add enriched meeting data
+                $meeting['city'] = $city;
+                $meeting['attendance_category'] = $attendanceOption;
+                $meeting['status'] = $status;
+                $meeting['sort_time'] = $meetingTime ?: '23:59'; // Put meetings without time at end
+                
+                $todaysMeetings[] = $meeting;
+            }
+        }
+        
+        // Sort meetings by time
+        usort($todaysMeetings, function($a, $b) {
+            return strcmp($a['sort_time'], $b['sort_time']);
+        });
+        
+        return [
+            'meetings' => $todaysMeetings,
+            'stats' => $stats,
+            'date' => $today->format('Y-m-d'),
+            'formatted_date' => $today->format('l, F j, Y'),
+            'day_name' => $today->format('l')
+        ];
+    }
+    
+    /**
+     * Determine if meeting is upcoming, current, or past
+     */
+    private function getMeetingStatus(string $startTime, string $endTime, string $currentTime): string
+    {
+        if (empty($startTime)) {
+            return 'upcoming'; // Default for meetings without time
+        }
+        
+        $start = strtotime($startTime);
+        $current = strtotime($currentTime);
+        $end = !empty($endTime) ? strtotime($endTime) : $start + (90 * 60); // Default 90 min duration
+        
+        if ($current < $start) {
+            return 'upcoming';
+        } elseif ($current >= $start && $current <= $end) {
+            return 'current';
+        } else {
+            return 'past';
+        }
+    }
+    
+    /**
      * Organize meetings by city (for location pages)
      */
     public function organizeMeetingsByCity(array $meetings): array

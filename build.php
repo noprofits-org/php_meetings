@@ -42,10 +42,14 @@ try {
     $meetingsByDate = $fetcher->organizeMeetingsByDate($meetings);
     $processStats = $fetcher->getProcessStats();
     
+    // Get today's meetings for homepage
+    $todaysData = $fetcher->getTodaysMeetings($meetings);
+    
     echo "✓ Processed " . $processStats['total_processed'] . " total meetings\n";
     echo "✓ Skipped " . $processStats['skipped_incomplete'] . " incomplete meetings\n";
     echo "✓ Categorized meetings: Online=" . $processStats['online_count'] . ", In-Person=" . $processStats['in_person_count'] . ", Hybrid=" . $processStats['hybrid_count'] . "\n";
-    echo "✓ Found " . count($processStats['cities_found']) . " cities: " . implode(', ', $processStats['cities_found']) . "\n\n";
+    echo "✓ Found " . count($processStats['cities_found']) . " cities: " . implode(', ', $processStats['cities_found']) . "\n";
+    echo "✓ Today's meetings (" . $todaysData['day_name'] . "): " . $todaysData['stats']['total_today'] . " total (" . $todaysData['stats']['upcoming'] . " upcoming, " . $todaysData['stats']['current'] . " current, " . $todaysData['stats']['past'] . " past)\n\n";
     
     // Create output directories (no locations directory)
     echo "[5/7] Setting up output directories...\n";
@@ -116,7 +120,8 @@ try {
         'total_meetings' => count($meetings),
         'days_with_meetings' => $daysWithMeetings,
         'process_stats' => $processStats,
-        'generated_at' => $generatedAt
+        'generated_at' => $generatedAt,
+        'todays_data' => $todaysData
     ]);
     
     file_put_contents($outputDir . '/index.html', $html);
@@ -691,6 +696,308 @@ h3 {
     * {
         animation: none !important;
         transition: none !important;
+    }
+}
+
+/* Today\'s Meetings Styles */
+.day-card {
+    display: block;
+    background: white;
+    border: 1px solid #e2e8f0;
+    border-radius: 0.5rem;
+    padding: 1rem;
+    text-decoration: none;
+    color: inherit;
+    transition: all 0.2s;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.day-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+    border-color: #3182ce;
+}
+
+.day-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.75rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.day-name {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: #2d3748;
+}
+
+.day-date {
+    font-size: 0.9rem;
+    color: #4a5568;
+}
+
+.day-card-stats {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.total-count {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: #3182ce;
+}
+
+.meeting-breakdown {
+    display: flex;
+    gap: 0.75rem;
+    font-size: 0.85rem;
+}
+
+.online-count {
+    color: #059669;
+    font-weight: 500;
+}
+
+.inperson-count {
+    color: #dc2626;
+    font-weight: 500;
+}
+
+.hybrid-count {
+    color: #7c3aed;
+    font-weight: 500;
+}
+
+/* Meeting Status Indicators */
+.meeting-status-upcoming {
+    border-left: 4px solid #3182ce;
+}
+
+.meeting-status-current {
+    border-left: 4px solid #22c55e;
+    background: #f0fdf4;
+}
+
+.meeting-status-past {
+    opacity: 0.7;
+    border-left: 4px solid #6b7280;
+}
+
+.live-indicator {
+    background: #22c55e;
+    color: white;
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.25rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    margin-left: 0.5rem;
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.8; }
+}
+
+/* Meeting Type Badges */
+.meeting-type-badge {
+    display: inline-block;
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.25rem;
+    font-size: 0.75rem;
+    font-weight: 500;
+}
+
+.meeting-type-online {
+    background: #dcfdf4;
+    color: #065f46;
+}
+
+.meeting-type-hybrid {
+    background: #f3e8ff;
+    color: #7c2d12;
+}
+
+.meeting-type-inperson {
+    background: #fef2f2;
+    color: #991b1b;
+}
+
+@media (max-width: 768px) {
+    .day-card-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.25rem;
+    }
+    
+    .day-card-stats {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.5rem;
+    }
+    
+    .meeting-breakdown {
+        gap: 1rem;
+    }
+    
+    .live-indicator {
+        margin-left: 0;
+        margin-top: 0.25rem;
+        display: block;
+        width: fit-content;
+    }
+}
+
+/* Search Interface Styles */
+.search-form {
+    background: white;
+    padding: 1.5rem;
+    border-radius: 0.5rem;
+    border: 1px solid #e2e8f0;
+    margin-bottom: 1rem;
+}
+
+.search-input-group {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+}
+
+.search-input {
+    flex: 1;
+    padding: 0.75rem;
+    border: 2px solid #e2e8f0;
+    border-radius: 0.375rem;
+    font-size: 1rem;
+    transition: border-color 0.2s;
+}
+
+.search-input:focus {
+    outline: none;
+    border-color: #3182ce;
+}
+
+.search-button {
+    padding: 0.75rem 1.5rem;
+    background: #3182ce;
+    color: white;
+    border: none;
+    border-radius: 0.375rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.search-button:hover {
+    background: #2c5aa0;
+}
+
+.filter-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 0.5rem;
+    align-items: end;
+}
+
+.filter-select {
+    padding: 0.75rem;
+    border: 2px solid #e2e8f0;
+    border-radius: 0.375rem;
+    background: white;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: border-color 0.2s;
+}
+
+.filter-select:focus {
+    outline: none;
+    border-color: #3182ce;
+}
+
+.clear-button {
+    padding: 0.75rem 1rem;
+    background: #6b7280;
+    color: white;
+    border: none;
+    border-radius: 0.375rem;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.clear-button:hover {
+    background: #4b5563;
+}
+
+.search-results {
+    background: white;
+    border-radius: 0.5rem;
+    border: 1px solid #e2e8f0;
+    overflow: hidden;
+}
+
+.results-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem;
+    background: #f8fafc;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.results-header h3 {
+    margin: 0;
+    font-size: 1.1rem;
+    color: #2d3748;
+}
+
+.results-count {
+    font-size: 0.9rem;
+    color: #4a5568;
+    font-weight: 500;
+}
+
+.results-list {
+    max-height: 600px;
+    overflow-y: auto;
+    padding: 0.5rem;
+}
+
+.results-list .meeting-card {
+    margin-bottom: 0.5rem;
+}
+
+.no-results {
+    background: white;
+    padding: 2rem;
+    border-radius: 0.5rem;
+    border: 1px solid #e2e8f0;
+    text-align: center;
+    color: #4a5568;
+}
+
+.hidden {
+    display: none;
+}
+
+@media (max-width: 768px) {
+    .search-input-group {
+        flex-direction: column;
+    }
+    
+    .filter-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .results-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.5rem;
     }
 }
 ';
